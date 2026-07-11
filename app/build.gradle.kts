@@ -5,9 +5,6 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
-// اگر فایل google-services.json هنوز اضافه نشده، پلاگین فایربیس فعال نمی‌شود
-// تا اولین بیلد پروژه (قبل از راه‌اندازی فایربیس) با خطا متوقف نشود.
-// بعد از اضافه کردن google-services.json (طبق README)، این پلاگین خودکار فعال می‌شود.
 if (file("google-services.json").exists()) {
     apply(plugin = "com.google.gms.google-services")
 }
@@ -24,9 +21,21 @@ android {
         versionName = "1.0.0"
     }
 
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+        }
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
@@ -64,19 +73,16 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
 
-    // Firebase (Auth + Firestore + Storage) for Google/Gmail login, user accounts, receipts
     implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-storage-ktx")
     implementation("com.google.android.gms:play-services-auth:21.2.0")
 
-    // Room (local offline cache of user activity/history)
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     ksp("androidx.room:room-compiler:2.6.1")
 
-    // Coil for loading receipt images
     implementation("io.coil-kt:coil-compose:2.6.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
