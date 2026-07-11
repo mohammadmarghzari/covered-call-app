@@ -6,6 +6,7 @@ import com.google.firebase.storage.FirebaseStorage
 import com.marghazari.coveredcall.data.model.AppUser
 import com.marghazari.coveredcall.data.model.ReceiptStatus
 import com.marghazari.coveredcall.data.model.ReceiptSubmission
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
