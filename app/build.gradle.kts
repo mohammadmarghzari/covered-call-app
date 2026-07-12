@@ -19,6 +19,9 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
+
+        val brsApiKey = System.getenv("BRSAPI_KEY") ?: ""
+        buildConfigField("String", "BRSAPI_KEY", "\"$brsApiKey\"")
     }
 
     signingConfigs {
@@ -48,6 +51,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"
@@ -84,6 +88,10 @@ dependencies {
     ksp("androidx.room:room-compiler:2.6.1")
 
     implementation("io.coil-kt:coil-compose:2.6.0")
+
+    // شبکه: دریافت داده زنده از BrsApi
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
