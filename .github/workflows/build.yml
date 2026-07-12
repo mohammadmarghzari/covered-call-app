@@ -22,6 +22,8 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
 
       - name: Build debug APK
+        env:
+          BRSAPI_KEY: ${{ secrets.BRSAPI_KEY }}
         run: gradle assembleDebug --stacktrace
 
       - name: Upload APK
