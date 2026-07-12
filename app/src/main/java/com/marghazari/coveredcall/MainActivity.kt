@@ -25,7 +25,7 @@ import com.marghazari.coveredcall.data.model.AppUser
 import com.marghazari.coveredcall.data.model.CommodityContract
 import com.marghazari.coveredcall.data.model.OptionContract
 import com.marghazari.coveredcall.data.repository.MarketRepository
-import com.marghazari.coveredcall.data.repository.MockMarketRepository
+import com.marghazari.coveredcall.data.repository.BrsApiOptionRepository
 import com.marghazari.coveredcall.data.repository.UserRepository
 import com.marghazari.coveredcall.ui.screens.*
 import com.marghazari.coveredcall.ui.theme.CoveredCallTheme
@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
 
     private val authClient by lazy { GoogleAuthClient(this) }
     private val userRepository by lazy { UserRepository() }
-    private val marketRepository: MarketRepository by lazy { MockMarketRepository() }
+    private val marketRepository: MarketRepository by lazy { BrsApiOptionRepository() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
