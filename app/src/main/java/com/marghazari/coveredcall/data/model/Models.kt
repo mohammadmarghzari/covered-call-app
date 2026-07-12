@@ -10,7 +10,8 @@ data class OptionContract(
     val expiryDate: String,
     val daysToExpiry: Int,
     val openInterest: Long = 0,
-    val contractSize: Int = 1000
+    val contractSize: Int = 1000,
+    val category: String = "سایر"
 )
 
 enum class OptionType { CALL, PUT }
