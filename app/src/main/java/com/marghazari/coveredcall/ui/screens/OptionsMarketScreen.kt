@@ -21,10 +21,10 @@ fun OptionsMarketScreen(
     onContractViewed: (OptionContract) -> Unit
 ) {
     val contracts by marketRepository.observeOptionContracts()
-        .collectAsState(initial = emptyList())
+        .collectAsState(initial = null)
 
     val bestContracts = remember(contracts) {
-        CoveredCallCalculator.rankBestContracts(contracts)
+        contracts?.let { CoveredCallCalculator.rankBestContracts(it) } ?: emptyList()
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
@@ -40,23 +40,44 @@ fun OptionsMarketScreen(
         )
         Spacer(modifier = Modifier.height(12.dp))
 
-        if (contracts.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+        when {
+            contracts == null -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
             }
-        } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(bestContracts) { result ->
-                    CoveredCallCard(
-                        result = result,
-                        onClick = {
-                            onContractViewed(result.contract)
-                            onOpenPnlChart(result.contract)
-                        }
-                    )
+            bestContracts.isEmpty() -> {
+                EmptyState(
+                    "فعلاً قرارداد کاورد کال به‌صرفه‌ای پیدا نشد.\n" +
+                        "ممکن است بازار بسته باشد یا کلید API تنظیم نشده باشد. کمی بعد دوباره تلاش کنید."
+                )
+            }
+            else -> {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(bestContracts) { result ->
+                        CoveredCallCard(
+                            result = result,
+                            onClick = {
+                                onContractViewed(result.contract)
+                                onOpenPnlChart(result.contract)
+                            }
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun EmptyState(message: String) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(
+            message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
     }
 }
 

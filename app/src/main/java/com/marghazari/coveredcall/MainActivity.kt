@@ -3,8 +3,10 @@ package com.marghazari.coveredcall
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.Storefront
@@ -25,7 +27,7 @@ import com.marghazari.coveredcall.data.model.AppUser
 import com.marghazari.coveredcall.data.model.CommodityContract
 import com.marghazari.coveredcall.data.model.OptionContract
 import com.marghazari.coveredcall.data.repository.MarketRepository
-import com.marghazari.coveredcall.data.repository.BrsApiOptionRepository
+import com.marghazari.coveredcall.data.repository.BrsApiMarketRepository
 import com.marghazari.coveredcall.data.repository.UserRepository
 import com.marghazari.coveredcall.ui.screens.*
 import com.marghazari.coveredcall.ui.theme.CoveredCallTheme
@@ -44,7 +46,7 @@ class MainActivity : ComponentActivity() {
 
     private val authClient by lazy { GoogleAuthClient(this) }
     private val userRepository by lazy { UserRepository() }
-    private val marketRepository: MarketRepository by lazy { BrsApiOptionRepository() }
+    private val marketRepository: MarketRepository by lazy { BrsApiMarketRepository() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,6 +60,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AppRoot(
     authClient: GoogleAuthClient,
@@ -104,7 +107,39 @@ private fun AppRoot(
     val isSubscribed = appUser?.isSubscribed == true &&
         (appUser?.subscriptionExpiryMillis ?: 0L) > System.currentTimeMillis()
 
+    val userLabel = appUser?.displayName?.takeIf { it.isNotBlank() }
+        ?: appUser?.email?.takeIf { it.isNotBlank() }
+        ?: authClient.currentUser()?.email
+        ?: ""
+
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text("آپشن یار", style = MaterialTheme.typography.titleMedium)
+                        if (userLabel.isNotBlank()) {
+                            Text(
+                                userLabel,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
+                actions = {
+                    IconButton(onClick = {
+                        authClient.signOut()
+                        currentUid = null
+                    }) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.Logout,
+                            contentDescription = "خروج از حساب"
+                        )
+                    }
+                }
+            )
+        },
         bottomBar = { BottomBar(navController) }
     ) { padding ->
         NavHost(

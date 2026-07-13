@@ -31,7 +31,7 @@ fun PnlChartScreen(contract: OptionContract) {
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            text = "سهم پایه: ${contract.underlyingSymbol} | قیمت اعمال: ${contract.strikePrice} ریال",
+            text = "سهم پایه: ${contract.underlyingSymbol} | قیمت اعمال: ${formatRial(contract.strikePrice)}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -111,8 +111,8 @@ fun PnlChartScreen(contract: OptionContract) {
             Spacer(Modifier.height(16.dp))
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
-                    InfoRow("نقطه سر به سر", "${result.breakEvenPrice} ریال")
-                    InfoRow("حداکثر سود در سررسید", "${result.maxProfitIfExercised} ریال")
+                    InfoRow("نقطه سر به سر", formatRial(result.breakEvenPrice))
+                    InfoRow("حداکثر سود در سررسید", formatRial(result.maxProfitIfExercised))
                     InfoRow("بازده ایستا", "%.2f%%".format(result.staticReturnPercent))
                     InfoRow("بازده موثر سالانه", "%.2f%%".format(result.annualizedReturnPercent))
                 }
