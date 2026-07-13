@@ -30,11 +30,11 @@ fun OptionChainScreen(
     onOpenPnlChart: (OptionContract) -> Unit,
     onContractViewed: (OptionContract) -> Unit
 ) {
-    val contracts by marketRepository.observeOptionContracts()
+    val feed by marketRepository.observeOptionContracts()
         .collectAsState(initial = null)
 
-    val chains = remember(contracts) {
-        (contracts ?: emptyList())
+    val chains = remember(feed) {
+        (feed?.items ?: emptyList())
             .groupBy { it.underlyingSymbol.ifBlank { "نامشخص" } }
             .map { (underlying, list) ->
                 UnderlyingChain(
@@ -58,14 +58,18 @@ fun OptionChainScreen(
         )
         Spacer(Modifier.height(12.dp))
 
+        val f = feed
         when {
-            contracts == null -> {
+            f == null -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             }
             chains.isEmpty() -> {
-                EmptyState("فعلاً قراردادی برای نمایش وجود ندارد.")
+                EmptyState(
+                    if (f.detail.isNotBlank()) f.detail
+                    else "فعلاً قراردادی برای نمایش وجود ندارد."
+                )
             }
             else -> {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {

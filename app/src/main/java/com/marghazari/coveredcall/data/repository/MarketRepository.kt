@@ -1,6 +1,7 @@
 package com.marghazari.coveredcall.data.repository
 
 import com.marghazari.coveredcall.data.model.CommodityContract
+import com.marghazari.coveredcall.data.model.MarketFeed
 import com.marghazari.coveredcall.data.model.OptionContract
 import com.marghazari.coveredcall.data.model.OptionType
 import kotlinx.coroutines.delay
@@ -9,8 +10,8 @@ import kotlinx.coroutines.flow.flow
 import kotlin.random.Random
 
 interface MarketRepository {
-    fun observeOptionContracts(): Flow<List<OptionContract>>
-    fun observeCommodityContracts(): Flow<List<CommodityContract>>
+    fun observeOptionContracts(): Flow<MarketFeed<OptionContract>>
+    fun observeCommodityContracts(): Flow<MarketFeed<CommodityContract>>
 }
 
 class MockMarketRepository : MarketRepository {
@@ -32,16 +33,16 @@ class MockMarketRepository : MarketRepository {
         CommodityContract("نقره‌آتی۰۳", "نقره", "آتی", 38_900_000, "1404/09/18", 210)
     )
 
-    override fun observeOptionContracts(): Flow<List<OptionContract>> = flow {
+    override fun observeOptionContracts(): Flow<MarketFeed<OptionContract>> = flow {
         while (true) {
-            emit(baseOptions.map { it.copy(premium = jitter(it.premium)) })
+            emit(MarketFeed(items = baseOptions.map { it.copy(premium = jitter(it.premium)) }))
             delay(4000)
         }
     }
 
-    override fun observeCommodityContracts(): Flow<List<CommodityContract>> = flow {
+    override fun observeCommodityContracts(): Flow<MarketFeed<CommodityContract>> = flow {
         while (true) {
-            emit(baseCommodities.map { it.copy(price = jitter(it.price)) })
+            emit(MarketFeed(items = baseCommodities.map { it.copy(price = jitter(it.price)) }))
             delay(4000)
         }
     }

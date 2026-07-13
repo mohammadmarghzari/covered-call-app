@@ -22,15 +22,15 @@ fun FormulaScreen(
     onOpenPnlChart: (OptionContract) -> Unit,
     onContractViewed: (OptionContract) -> Unit
 ) {
-    val contracts by marketRepository.observeOptionContracts()
+    val feed by marketRepository.observeOptionContracts()
         .collectAsState(initial = null)
 
     var targetPercent by remember { mutableStateOf(20f) }
     var horizonMonths by remember { mutableStateOf(1) }
 
-    val matches = remember(contracts, targetPercent, horizonMonths) {
-        contracts?.let {
-            CoveredCallCalculator.findForTarget(it, targetPercent.toDouble(), horizonMonths)
+    val matches = remember(feed, targetPercent, horizonMonths) {
+        feed?.let {
+            CoveredCallCalculator.findForTarget(it.items, targetPercent.toDouble(), horizonMonths)
         } ?: emptyList()
     }
 
@@ -70,15 +70,17 @@ fun FormulaScreen(
 
         Spacer(Modifier.height(16.dp))
 
+        val f = feed
         when {
-            contracts == null -> {
+            f == null -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             }
             matches.isEmpty() -> {
                 EmptyState(
-                    "با سود هدف %${targetPercent.roundToInt()} در $horizonMonths ماه، فعلاً قرارداد مناسبی پیدا نشد.\n" +
+                    if (f.items.isEmpty() && f.detail.isNotBlank()) f.detail
+                    else "با سود هدف %${targetPercent.roundToInt()} در $horizonMonths ماه، فعلاً قرارداد مناسبی پیدا نشد.\n" +
                         "سود هدف را کمی کمتر کن یا بازه را بلندتر بگیر."
                 )
             }

@@ -16,6 +16,16 @@ data class OptionContract(
 
 enum class OptionType { CALL, PUT }
 
+/** وضعیت دریافت داده از سرور، برای نمایش علت دقیق خالی‌بودن روی صفحه. */
+enum class FeedStatus { OK, KEY_MISSING, NETWORK_ERROR, HTTP_ERROR, EMPTY }
+
+/** خروجی یک منبع بازار: آیتم‌ها به‌همراه وضعیت و پیام قابل‌نمایش. */
+data class MarketFeed<T>(
+    val items: List<T> = emptyList(),
+    val status: FeedStatus = FeedStatus.OK,
+    val detail: String = ""
+)
+
 data class CoveredCallResult(
     val contract: OptionContract,
     val totalCostPerLot: Long,

@@ -26,7 +26,7 @@ fun CommodityMarketScreen(
         return
     }
 
-    val contracts by marketRepository.observeCommodityContracts()
+    val feed by marketRepository.observeCommodityContracts()
         .collectAsState(initial = null)
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
@@ -43,22 +43,22 @@ fun CommodityMarketScreen(
         )
         Spacer(modifier = Modifier.height(12.dp))
 
-        val list = contracts
+        val f = feed
         when {
-            list == null -> {
+            f == null -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             }
-            list.isEmpty() -> {
+            f.items.isEmpty() -> {
                 EmptyState(
-                    "فعلاً داده‌ای برای بازار کالا در دسترس نیست.\n" +
-                        "ممکن است سرویس موقتاً پاسخ ندهد یا کلید API تنظیم نشده باشد."
+                    if (f.detail.isNotBlank()) f.detail
+                    else "فعلاً داده‌ای برای بازار کالا در دسترس نیست."
                 )
             }
             else -> {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(list) { contract ->
+                    items(f.items) { contract ->
                         ElevatedCard(
                             onClick = { onContractViewed(contract) },
                             modifier = Modifier.fillMaxWidth()

@@ -20,11 +20,11 @@ fun OptionsMarketScreen(
     onOpenPnlChart: (OptionContract) -> Unit,
     onContractViewed: (OptionContract) -> Unit
 ) {
-    val contracts by marketRepository.observeOptionContracts()
+    val feed by marketRepository.observeOptionContracts()
         .collectAsState(initial = null)
 
-    val bestContracts = remember(contracts) {
-        contracts?.let { CoveredCallCalculator.rankBestContracts(it) } ?: emptyList()
+    val bestContracts = remember(feed) {
+        feed?.let { CoveredCallCalculator.rankBestContracts(it.items) } ?: emptyList()
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
@@ -40,16 +40,17 @@ fun OptionsMarketScreen(
         )
         Spacer(modifier = Modifier.height(12.dp))
 
+        val f = feed
         when {
-            contracts == null -> {
+            f == null -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             }
             bestContracts.isEmpty() -> {
                 EmptyState(
-                    "فعلاً قرارداد کاورد کال به‌صرفه‌ای پیدا نشد.\n" +
-                        "ممکن است بازار بسته باشد یا کلید API تنظیم نشده باشد. کمی بعد دوباره تلاش کنید."
+                    if (f.items.isEmpty() && f.detail.isNotBlank()) f.detail
+                    else "فعلاً قرارداد کاورد کال به‌صرفه‌ای پیدا نشد. کمی بعد دوباره تلاش کن."
                 )
             }
             else -> {

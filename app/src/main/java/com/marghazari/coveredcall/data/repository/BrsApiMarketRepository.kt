@@ -2,6 +2,8 @@ package com.marghazari.coveredcall.data.repository
 
 import com.marghazari.coveredcall.BuildConfig
 import com.marghazari.coveredcall.data.model.CommodityContract
+import com.marghazari.coveredcall.data.model.FeedStatus
+import com.marghazari.coveredcall.data.model.MarketFeed
 import com.marghazari.coveredcall.data.model.OptionContract
 import com.marghazari.coveredcall.data.model.OptionType
 import kotlinx.coroutines.Dispatchers
@@ -20,8 +22,8 @@ import java.util.concurrent.TimeUnit
  * - بازار آپشن بورس تهران: https://brsapi.ir/bourse-api-option-webservice/
  * - قیمت لحظه‌ای طلا و سکه (به‌عنوان کالاهای بازار کالا): https://brsapi.ir/free-api-gold-currency-crypto/
  *
- * اگر کلید API خالی باشد یا سرویس در دسترس نباشد، لیست خالی برگردانده می‌شود
- * و صفحه مربوطه پیام «داده‌ای موجود نیست» را نمایش می‌دهد.
+ * خروجی هر متد یک [MarketFeed] است که علاوه بر داده، وضعیت (کلید نبودن، خطای شبکه،
+ * خطای سرور، خالی بودن) را هم گزارش می‌کند تا صفحه بتواند علت دقیق را نشان دهد.
  */
 class BrsApiMarketRepository : MarketRepository {
 
@@ -30,26 +32,16 @@ class BrsApiMarketRepository : MarketRepository {
         .readTimeout(15, TimeUnit.SECONDS)
         .build()
 
-    override fun observeOptionContracts(): Flow<List<OptionContract>> = flow {
+    override fun observeOptionContracts(): Flow<MarketFeed<OptionContract>> = flow {
         while (true) {
-            val contracts = try {
-                fetchOptionContracts()
-            } catch (e: Exception) {
-                emptyList()
-            }
-            emit(contracts)
+            emit(fetchOptionContracts())
             delay(20_000) // هر ۲۰ ثانیه یک‌بار به‌روزرسانی
         }
     }
 
-    override fun observeCommodityContracts(): Flow<List<CommodityContract>> = flow {
+    override fun observeCommodityContracts(): Flow<MarketFeed<CommodityContract>> = flow {
         while (true) {
-            val contracts = try {
-                fetchCommodityContracts()
-            } catch (e: Exception) {
-                emptyList()
-            }
-            emit(contracts)
+            emit(fetchCommodityContracts())
             delay(20_000)
         }
     }
@@ -58,14 +50,27 @@ class BrsApiMarketRepository : MarketRepository {
     // آپشن
     // ---------------------------------------------------------------------------------------------
 
-    private suspend fun fetchOptionContracts(): List<OptionContract> = withContext(Dispatchers.IO) {
-        val key = BuildConfig.BRSAPI_KEY
-        if (key.isBlank()) return@withContext emptyList()
+    private suspend fun fetchOptionContracts(): MarketFeed<OptionContract> =
+        withContext(Dispatchers.IO) {
+            val key = BuildConfig.BRSAPI_KEY
+            if (key.isBlank()) return@withContext MarketFeed(status = FeedStatus.KEY_MISSING, detail = KEY_MISSING_MSG)
 
-        val url = "https://BrsApi.ir/Api/Tsetmc/Option.php?key=$key"
-        val body = httpGet(url) ?: return@withContext emptyList()
-        parseOptionContracts(body)
-    }
+            val url = "https://BrsApi.ir/Api/Tsetmc/Option.php?key=$key"
+            try {
+                val (code, body) = httpGet(url)
+                if (body == null) {
+                    return@withContext MarketFeed(status = FeedStatus.HTTP_ERROR, detail = httpErrorMsg(code))
+                }
+                val items = parseOptionContracts(body)
+                if (items.isEmpty()) {
+                    MarketFeed(status = FeedStatus.EMPTY, detail = EMPTY_MSG)
+                } else {
+                    MarketFeed(items = items, status = FeedStatus.OK)
+                }
+            } catch (e: Exception) {
+                MarketFeed(status = FeedStatus.NETWORK_ERROR, detail = networkErrorMsg(e))
+            }
+        }
 
     private fun parseOptionContracts(rawJson: String): List<OptionContract> {
         val jsonArray = extractArray(rawJson, "data", "result")
@@ -111,14 +116,27 @@ class BrsApiMarketRepository : MarketRepository {
     // بازار کالا (طلا و سکه)
     // ---------------------------------------------------------------------------------------------
 
-    private suspend fun fetchCommodityContracts(): List<CommodityContract> = withContext(Dispatchers.IO) {
-        val key = BuildConfig.BRSAPI_KEY
-        if (key.isBlank()) return@withContext emptyList()
+    private suspend fun fetchCommodityContracts(): MarketFeed<CommodityContract> =
+        withContext(Dispatchers.IO) {
+            val key = BuildConfig.BRSAPI_KEY
+            if (key.isBlank()) return@withContext MarketFeed(status = FeedStatus.KEY_MISSING, detail = KEY_MISSING_MSG)
 
-        val url = "https://BrsApi.ir/Api/Market/Gold_Currency.php?key=$key"
-        val body = httpGet(url) ?: return@withContext emptyList()
-        parseCommodityContracts(body)
-    }
+            val url = "https://BrsApi.ir/Api/Market/Gold_Currency.php?key=$key"
+            try {
+                val (code, body) = httpGet(url)
+                if (body == null) {
+                    return@withContext MarketFeed(status = FeedStatus.HTTP_ERROR, detail = httpErrorMsg(code))
+                }
+                val items = parseCommodityContracts(body)
+                if (items.isEmpty()) {
+                    MarketFeed(status = FeedStatus.EMPTY, detail = EMPTY_MSG)
+                } else {
+                    MarketFeed(items = items, status = FeedStatus.OK)
+                }
+            } catch (e: Exception) {
+                MarketFeed(status = FeedStatus.NETWORK_ERROR, detail = networkErrorMsg(e))
+            }
+        }
 
     private fun parseCommodityContracts(rawJson: String): List<CommodityContract> {
         val trimmed = rawJson.trim()
@@ -177,7 +195,8 @@ class BrsApiMarketRepository : MarketRepository {
     // ابزارهای مشترک
     // ---------------------------------------------------------------------------------------------
 
-    private fun httpGet(url: String): String? {
+    /** درخواست GET؛ خروجی: کد وضعیت و بدنه (در صورت موفق‌بودن). */
+    private fun httpGet(url: String): Pair<Int, String?> {
         val request = Request.Builder()
             .url(url)
             .header(
@@ -188,8 +207,8 @@ class BrsApiMarketRepository : MarketRepository {
             .build()
 
         client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) return null
-            return response.body?.string()
+            if (!response.isSuccessful) return response.code to null
+            return response.code to response.body?.string()
         }
     }
 
@@ -223,5 +242,21 @@ class BrsApiMarketRepository : MarketRepository {
             if (parsed != null) return parsed.toLong()
         }
         return 0L
+    }
+
+    private fun httpErrorMsg(code: Int): String = when (code) {
+        401, 403 -> "کلید API نامعتبر یا منقضی است (خطای $code). کلید معتبر BrsApi را در سکرت BRSAPI_KEY قرار بده."
+        429 -> "تعداد درخواست‌ها بیش از حد مجاز است (خطای ۴۲۹). کمی بعد دوباره تلاش کن."
+        else -> "سرور خطای $code برگرداند. کمی بعد دوباره تلاش کن."
+    }
+
+    private fun networkErrorMsg(e: Exception): String =
+        "خطا در اتصال به سرور: ${e.message ?: "اتصال اینترنت را بررسی کن"}"
+
+    private companion object {
+        const val KEY_MISSING_MSG =
+            "کلید API تنظیم نشده است. در تنظیمات ریپازیتوری گیت‌هاب، سکرت BRSAPI_KEY را اضافه کن و دوباره APK را بساز."
+        const val EMPTY_MSG =
+            "سرور فعلاً داده‌ای برنگرداند. احتمالاً بازار بسته است؛ در ساعات معاملاتی دوباره امتحان کن."
     }
 }
