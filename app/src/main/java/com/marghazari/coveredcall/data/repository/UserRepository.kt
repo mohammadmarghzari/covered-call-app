@@ -4,6 +4,7 @@ import android.net.Uri
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import com.marghazari.coveredcall.data.model.AppUser
+import com.marghazari.coveredcall.data.model.FeedbackMessage
 import com.marghazari.coveredcall.data.model.ReceiptStatus
 import com.marghazari.coveredcall.data.model.ReceiptSubmission
 import kotlinx.coroutines.channels.awaitClose
@@ -68,5 +69,32 @@ class UserRepository(
                 "subscriptionExpiryMillis" to expiry
             )
         ).await()
+    }
+
+    // --------------------------------------------------------------------------------------------
+    // سوالات و انتقادات
+    // --------------------------------------------------------------------------------------------
+
+    suspend fun submitFeedback(uid: String, email: String, message: String): String {
+        val id = UUID.randomUUID().toString()
+        val feedback = FeedbackMessage(
+            id = id,
+            uid = uid,
+            email = email,
+            message = message,
+            submittedAtMillis = System.currentTimeMillis()
+        )
+        userDoc(uid).collection("feedback").document(id).set(feedback).await()
+        return id
+    }
+
+    fun observeFeedback(uid: String): Flow<List<FeedbackMessage>> = callbackFlow {
+        val registration = userDoc(uid).collection("feedback")
+            .addSnapshotListener { snapshot, _ ->
+                val list = snapshot?.documents
+                    ?.mapNotNull { it.toObject(FeedbackMessage::class.java) } ?: emptyList()
+                trySend(list.sortedByDescending { it.submittedAtMillis })
+            }
+        awaitClose { registration.remove() }
     }
 }

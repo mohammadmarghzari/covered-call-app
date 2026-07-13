@@ -55,3 +55,23 @@ data class ReceiptSubmission(
     val status: ReceiptStatus = ReceiptStatus.PENDING,
     val reviewedAtMillis: Long? = null
 )
+
+/** پیام کاربر در بخش سوالات و انتقادات. پاسخ ادمین در فیلد reply قرار می‌گیرد. */
+data class FeedbackMessage(
+    val id: String = "",
+    val uid: String = "",
+    val email: String = "",
+    val message: String = "",
+    val submittedAtMillis: Long = 0L,
+    val reply: String = "",
+    val repliedAtMillis: Long = 0L
+)
+
+/** نتیجه فرمول‌یاب: یک قرارداد کاورد کال که به سود هدف کاربر می‌رسد، همراه با استدلال. */
+data class TargetMatch(
+    val result: CoveredCallResult,
+    val monthlyReturnPercent: Double,
+    val projectedReturnPercent: Double,
+    val fitsHorizon: Boolean,
+    val reasoning: String
+)

@@ -3,17 +3,17 @@ package com.marghazari.coveredcall
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.AccountTree
+import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.Storefront
-import androidx.compose.material.icons.filled.Wallet
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -34,11 +34,14 @@ import com.marghazari.coveredcall.ui.theme.CoveredCallTheme
 import kotlinx.coroutines.launch
 
 private object Routes {
-    const val LOGIN = "login"
     const val OPTIONS = "options"
+    const val FORMULA = "formula"
+    const val CHAIN = "chain"
     const val COMMODITY = "commodity"
+    const val PROFILE = "profile"
     const val SUBSCRIPTION = "subscription"
     const val HISTORY = "history"
+    const val FEEDBACK = "feedback"
     const val PNL_CHART = "pnl_chart"
 }
 
@@ -107,38 +110,16 @@ private fun AppRoot(
     val isSubscribed = appUser?.isSubscribed == true &&
         (appUser?.subscriptionExpiryMillis ?: 0L) > System.currentTimeMillis()
 
-    val userLabel = appUser?.displayName?.takeIf { it.isNotBlank() }
-        ?: appUser?.email?.takeIf { it.isNotBlank() }
-        ?: authClient.currentUser()?.email
-        ?: ""
+    val firebaseUser = authClient.currentUser()
+    val displayName = appUser?.displayName?.takeIf { it.isNotBlank() }
+        ?: firebaseUser?.displayName ?: ""
+    val email = appUser?.email?.takeIf { it.isNotBlank() }
+        ?: firebaseUser?.email ?: ""
+    val photoUrl = firebaseUser?.photoUrl?.toString()
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("آپشن یار", style = MaterialTheme.typography.titleMedium)
-                        if (userLabel.isNotBlank()) {
-                            Text(
-                                userLabel,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                },
-                actions = {
-                    IconButton(onClick = {
-                        authClient.signOut()
-                        currentUid = null
-                    }) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.Logout,
-                            contentDescription = "خروج از حساب"
-                        )
-                    }
-                }
-            )
+            TopAppBar(title = { Text("آپشن یار", style = MaterialTheme.typography.titleMedium) })
         },
         bottomBar = { BottomBar(navController) }
     ) { padding ->
@@ -149,6 +130,34 @@ private fun AppRoot(
         ) {
             composable(Routes.OPTIONS) {
                 OptionsMarketScreen(
+                    marketRepository = marketRepository,
+                    onOpenPnlChart = { contract ->
+                        selectedOption = contract
+                        navController.navigate(Routes.PNL_CHART)
+                    },
+                    onContractViewed = { contract ->
+                        scope.launch {
+                            logActivity(db, uid, "VIEW_OPTION", contract.symbol)
+                        }
+                    }
+                )
+            }
+            composable(Routes.FORMULA) {
+                FormulaScreen(
+                    marketRepository = marketRepository,
+                    onOpenPnlChart = { contract ->
+                        selectedOption = contract
+                        navController.navigate(Routes.PNL_CHART)
+                    },
+                    onContractViewed = { contract ->
+                        scope.launch {
+                            logActivity(db, uid, "VIEW_OPTION", contract.symbol)
+                        }
+                    }
+                )
+            }
+            composable(Routes.CHAIN) {
+                OptionChainScreen(
                     marketRepository = marketRepository,
                     onOpenPnlChart = { contract ->
                         selectedOption = contract
@@ -173,6 +182,22 @@ private fun AppRoot(
                     }
                 )
             }
+            composable(Routes.PROFILE) {
+                ProfileScreen(
+                    displayName = displayName,
+                    email = email,
+                    photoUrl = photoUrl,
+                    isSubscribed = isSubscribed,
+                    subscriptionExpiryMillis = appUser?.subscriptionExpiryMillis ?: 0L,
+                    onOpenSubscription = { navController.navigate(Routes.SUBSCRIPTION) },
+                    onOpenHistory = { navController.navigate(Routes.HISTORY) },
+                    onOpenFeedback = { navController.navigate(Routes.FEEDBACK) },
+                    onSignOut = {
+                        authClient.signOut()
+                        currentUid = null
+                    }
+                )
+            }
             composable(Routes.SUBSCRIPTION) {
                 SubscriptionScreen(
                     uid = uid,
@@ -183,6 +208,13 @@ private fun AppRoot(
             }
             composable(Routes.HISTORY) {
                 HistoryScreen(ownerUid = uid)
+            }
+            composable(Routes.FEEDBACK) {
+                FeedbackScreen(
+                    uid = uid,
+                    email = email,
+                    userRepository = userRepository
+                )
             }
             composable(Routes.PNL_CHART) {
                 val contract = selectedOption
@@ -196,23 +228,26 @@ private fun AppRoot(
     }
 }
 
+private data class NavItem(val route: String, val label: String, val icon: ImageVector)
+
 @Composable
 private fun BottomBar(navController: NavHostController) {
     val items = listOf(
-        Triple(Routes.OPTIONS, "آپشن", Icons.Filled.ShowChart),
-        Triple(Routes.COMMODITY, "بورس کالا", Icons.Filled.Storefront),
-        Triple(Routes.SUBSCRIPTION, "اشتراک", Icons.Filled.Wallet),
-        Triple(Routes.HISTORY, "تاریخچه", Icons.Filled.History)
+        NavItem(Routes.OPTIONS, "آپشن", Icons.Filled.ShowChart),
+        NavItem(Routes.FORMULA, "فرمول‌یاب", Icons.Filled.Calculate),
+        NavItem(Routes.CHAIN, "زنجیره", Icons.Filled.AccountTree),
+        NavItem(Routes.COMMODITY, "کالا", Icons.Filled.Storefront),
+        NavItem(Routes.PROFILE, "پروفایل", Icons.Filled.Person)
     )
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
     NavigationBar {
-        items.forEach { (route, label, icon) ->
+        items.forEach { item ->
             NavigationBarItem(
-                selected = currentRoute == route,
+                selected = currentRoute == item.route,
                 onClick = {
-                    navController.navigate(route) {
+                    navController.navigate(item.route) {
                         popUpTo(navController.graph.findStartDestination().id) {
                             saveState = true
                         }
@@ -220,8 +255,8 @@ private fun BottomBar(navController: NavHostController) {
                         restoreState = true
                     }
                 },
-                icon = { Icon(icon, contentDescription = label) },
-                label = { Text(label) }
+                icon = { Icon(item.icon, contentDescription = item.label) },
+                label = { Text(item.label) }
             )
         }
     }
