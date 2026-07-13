@@ -9,7 +9,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.marghazari.coveredcall.data.model.FeedbackMessage
-import com.marghazari.coveredcall.data.repository.UserRepository
+import com.marghazari.coveredcall.data.remote.ApiResult
+import com.marghazari.coveredcall.data.remote.BackendClient
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -17,16 +18,22 @@ import java.util.Locale
 
 @Composable
 fun FeedbackScreen(
-    uid: String,
-    email: String,
-    userRepository: UserRepository
+    backendClient: BackendClient,
+    token: String
 ) {
     val scope = rememberCoroutineScope()
     var text by remember { mutableStateOf("") }
     var isSending by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
+    var messages by remember { mutableStateOf<List<FeedbackMessage>>(emptyList()) }
+    var refreshKey by remember { mutableStateOf(0) }
 
-    val messages by userRepository.observeFeedback(uid).collectAsState(initial = emptyList())
+    LaunchedEffect(refreshKey) {
+        when (val r = backendClient.getFeedback(token)) {
+            is ApiResult.Ok -> messages = r.data
+            is ApiResult.Err -> statusMessage = r.message
+        }
+    }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         Text("سوالات و انتقادات", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -54,16 +61,17 @@ fun FeedbackScreen(
                     return@Button
                 }
                 isSending = true
+                statusMessage = null
                 scope.launch {
-                    try {
-                        userRepository.submitFeedback(uid, email, body)
-                        text = ""
-                        statusMessage = "پیام ارسال شد. ممنون از بازخوردت!"
-                    } catch (e: Exception) {
-                        statusMessage = "خطا در ارسال، دوباره تلاش کن."
-                    } finally {
-                        isSending = false
+                    when (val r = backendClient.submitFeedback(token, body)) {
+                        is ApiResult.Ok -> {
+                            text = ""
+                            statusMessage = "پیام ارسال شد. ممنون از بازخوردت!"
+                            refreshKey++
+                        }
+                        is ApiResult.Err -> statusMessage = r.message
                     }
+                    isSending = false
                 }
             },
             enabled = !isSending
@@ -102,11 +110,13 @@ private fun FeedbackCard(message: FeedbackMessage) {
         Column(Modifier.padding(12.dp)) {
             Text(message.message)
             Spacer(Modifier.height(4.dp))
-            Text(
-                sdf.format(Date(message.submittedAtMillis)),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (message.submittedAtMillis > 0) {
+                Text(
+                    sdf.format(Date(message.submittedAtMillis)),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             if (message.reply.isNotBlank()) {
                 Spacer(Modifier.height(8.dp))
                 Surface(

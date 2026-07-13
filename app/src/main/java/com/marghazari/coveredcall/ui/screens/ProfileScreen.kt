@@ -2,7 +2,6 @@ package com.marghazari.coveredcall.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ChevronLeft
@@ -14,11 +13,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -26,8 +23,7 @@ import java.util.Locale
 @Composable
 fun ProfileScreen(
     displayName: String,
-    email: String,
-    photoUrl: String?,
+    phone: String,
     isSubscribed: Boolean,
     subscriptionExpiryMillis: Long,
     onOpenSubscription: () -> Unit,
@@ -44,19 +40,7 @@ fun ProfileScreen(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (!photoUrl.isNullOrBlank()) {
-                    AsyncImage(
-                        model = photoUrl,
-                        contentDescription = null,
-                        modifier = Modifier.size(56.dp).clip(CircleShape)
-                    )
-                } else {
-                    Icon(
-                        Icons.Filled.Person,
-                        contentDescription = null,
-                        modifier = Modifier.size(56.dp)
-                    )
-                }
+                Icon(Icons.Filled.Person, contentDescription = null, modifier = Modifier.size(48.dp))
                 Spacer(Modifier.width(14.dp))
                 Column {
                     Text(
@@ -64,9 +48,9 @@ fun ProfileScreen(
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium
                     )
-                    if (email.isNotBlank()) {
+                    if (phone.isNotBlank()) {
                         Text(
-                            email,
+                            phone,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -111,10 +95,7 @@ fun ProfileScreen(
 
         Spacer(Modifier.height(16.dp))
 
-        OutlinedButton(
-            onClick = onSignOut,
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) {
             Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
             Spacer(Modifier.width(8.dp))
             Text("خروج از حساب")

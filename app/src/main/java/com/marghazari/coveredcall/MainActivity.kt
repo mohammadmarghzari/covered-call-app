@@ -21,14 +21,15 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.marghazari.coveredcall.auth.GoogleAuthClient
+import com.marghazari.coveredcall.auth.SessionManager
 import com.marghazari.coveredcall.data.local.AppDatabase
 import com.marghazari.coveredcall.data.model.AppUser
 import com.marghazari.coveredcall.data.model.CommodityContract
 import com.marghazari.coveredcall.data.model.OptionContract
-import com.marghazari.coveredcall.data.repository.MarketRepository
+import com.marghazari.coveredcall.data.remote.ApiResult
+import com.marghazari.coveredcall.data.remote.BackendClient
 import com.marghazari.coveredcall.data.repository.BrsApiMarketRepository
-import com.marghazari.coveredcall.data.repository.UserRepository
+import com.marghazari.coveredcall.data.repository.MarketRepository
 import com.marghazari.coveredcall.ui.screens.*
 import com.marghazari.coveredcall.ui.theme.CoveredCallTheme
 import kotlinx.coroutines.launch
@@ -47,8 +48,7 @@ private object Routes {
 
 class MainActivity : ComponentActivity() {
 
-    private val authClient by lazy { GoogleAuthClient(this) }
-    private val userRepository by lazy { UserRepository() }
+    private val backendClient by lazy { BackendClient() }
     private val marketRepository: MarketRepository by lazy { BrsApiMarketRepository() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -56,7 +56,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             CoveredCallTheme {
                 Surface {
-                    AppRoot(authClient, userRepository, marketRepository)
+                    AppRoot(backendClient, marketRepository)
                 }
             }
         }
@@ -66,56 +66,57 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AppRoot(
-    authClient: GoogleAuthClient,
-    userRepository: UserRepository,
+    backendClient: BackendClient,
     marketRepository: MarketRepository
 ) {
     val navController = rememberNavController()
     val context = LocalContext.current
+    val sessionManager = remember { SessionManager(context) }
     val db = remember { AppDatabase.getInstance(context) }
     val scope = rememberCoroutineScope()
 
-    var currentUid by remember { mutableStateOf(authClient.currentUser()?.uid) }
-    val appUser by produceState<AppUser?>(initialValue = null, currentUid) {
-        val uid = currentUid
-        if (uid != null) {
-            userRepository.observeUser(uid).collect { value = it }
-        } else {
-            value = null
+    var token by remember { mutableStateOf(sessionManager.getToken()) }
+    var appUser by remember { mutableStateOf<AppUser?>(null) }
+    var selectedOption by remember { mutableStateOf<OptionContract?>(null) }
+
+    // با تغییر توکن، پروفایل کاربر را از سرور می‌گیریم. فقط اگر توکن واقعاً باطل شده باشد، خارج می‌شویم.
+    LaunchedEffect(token) {
+        val t = token
+        if (t == null) {
+            appUser = null
+            return@LaunchedEffect
+        }
+        when (val r = backendClient.getMe(t)) {
+            is ApiResult.Ok -> appUser = r.data
+            is ApiResult.Err -> if (r.authExpired) {
+                sessionManager.clear()
+                token = null
+                appUser = null
+            }
         }
     }
 
-    var selectedOption by remember { mutableStateOf<OptionContract?>(null) }
-
-    val isSignedIn = currentUid != null
-
-    if (!isSignedIn) {
-        LoginScreen(authClient = authClient, onSignedIn = {
-            val user = authClient.currentUser()
-            if (user != null) {
-                scope.launch {
-                    userRepository.ensureUserAccountExists(
-                        uid = user.uid,
-                        email = user.email ?: "",
-                        displayName = user.displayName ?: ""
-                    )
-                    currentUid = user.uid
-                }
-            }
-        })
+    if (token == null) {
+        LoginScreen(backendClient = backendClient) { newToken, user ->
+            sessionManager.saveToken(newToken)
+            appUser = user
+            token = newToken
+        }
         return
     }
 
-    val uid = currentUid!!
+    val activeToken = token!!
     val isSubscribed = appUser?.isSubscribed == true &&
         (appUser?.subscriptionExpiryMillis ?: 0L) > System.currentTimeMillis()
+    val displayName = appUser?.displayName ?: ""
+    val phone = appUser?.phone ?: ""
+    val ownerId = appUser?.id?.takeIf { it.isNotBlank() } ?: "me"
 
-    val firebaseUser = authClient.currentUser()
-    val displayName = appUser?.displayName?.takeIf { it.isNotBlank() }
-        ?: firebaseUser?.displayName ?: ""
-    val email = appUser?.email?.takeIf { it.isNotBlank() }
-        ?: firebaseUser?.email ?: ""
-    val photoUrl = firebaseUser?.photoUrl?.toString()
+    val signOut = {
+        sessionManager.clear()
+        token = null
+        appUser = null
+    }
 
     Scaffold(
         topBar = {
@@ -136,9 +137,7 @@ private fun AppRoot(
                         navController.navigate(Routes.PNL_CHART)
                     },
                     onContractViewed = { contract ->
-                        scope.launch {
-                            logActivity(db, uid, "VIEW_OPTION", contract.symbol)
-                        }
+                        scope.launch { logActivity(db, ownerId, "VIEW_OPTION", contract.symbol) }
                     }
                 )
             }
@@ -150,9 +149,7 @@ private fun AppRoot(
                         navController.navigate(Routes.PNL_CHART)
                     },
                     onContractViewed = { contract ->
-                        scope.launch {
-                            logActivity(db, uid, "VIEW_OPTION", contract.symbol)
-                        }
+                        scope.launch { logActivity(db, ownerId, "VIEW_OPTION", contract.symbol) }
                     }
                 )
             }
@@ -164,9 +161,7 @@ private fun AppRoot(
                         navController.navigate(Routes.PNL_CHART)
                     },
                     onContractViewed = { contract ->
-                        scope.launch {
-                            logActivity(db, uid, "VIEW_OPTION", contract.symbol)
-                        }
+                        scope.launch { logActivity(db, ownerId, "VIEW_OPTION", contract.symbol) }
                     }
                 )
             }
@@ -176,45 +171,36 @@ private fun AppRoot(
                     marketRepository = marketRepository,
                     onGoToSubscription = { navController.navigate(Routes.SUBSCRIPTION) },
                     onContractViewed = { contract: CommodityContract ->
-                        scope.launch {
-                            logActivity(db, uid, "VIEW_COMMODITY", contract.symbol)
-                        }
+                        scope.launch { logActivity(db, ownerId, "VIEW_COMMODITY", contract.symbol) }
                     }
                 )
             }
             composable(Routes.PROFILE) {
                 ProfileScreen(
                     displayName = displayName,
-                    email = email,
-                    photoUrl = photoUrl,
+                    phone = phone,
                     isSubscribed = isSubscribed,
                     subscriptionExpiryMillis = appUser?.subscriptionExpiryMillis ?: 0L,
                     onOpenSubscription = { navController.navigate(Routes.SUBSCRIPTION) },
                     onOpenHistory = { navController.navigate(Routes.HISTORY) },
                     onOpenFeedback = { navController.navigate(Routes.FEEDBACK) },
-                    onSignOut = {
-                        authClient.signOut()
-                        currentUid = null
-                    }
+                    onSignOut = signOut
                 )
             }
             composable(Routes.SUBSCRIPTION) {
                 SubscriptionScreen(
-                    uid = uid,
                     isSubscribed = isSubscribed,
                     subscriptionExpiryMillis = appUser?.subscriptionExpiryMillis ?: 0L,
-                    userRepository = userRepository
+                    backendClient = backendClient,
+                    token = activeToken,
+                    onSubscriptionUpdated = { appUser = it }
                 )
             }
             composable(Routes.HISTORY) {
-                HistoryScreen(ownerUid = uid)
+                HistoryScreen(ownerUid = ownerId)
             }
             composable(Routes.FEEDBACK) {
-                FeedbackScreen(
-                    uid = uid,
-                    email = email,
-                    userRepository = userRepository
-                )
+                FeedbackScreen(backendClient = backendClient, token = activeToken)
             }
             composable(Routes.PNL_CHART) {
                 val contract = selectedOption

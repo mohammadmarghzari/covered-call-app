@@ -47,33 +47,19 @@ data class CommodityContract(
 )
 
 data class AppUser(
-    val uid: String = "",
-    val email: String = "",
+    val id: String = "",
+    val phone: String = "",
     val displayName: String = "",
     val isSubscribed: Boolean = false,
     val subscriptionExpiryMillis: Long = 0L
 )
 
-enum class ReceiptStatus { PENDING, APPROVED, REJECTED }
-
-data class ReceiptSubmission(
-    val id: String = "",
-    val uid: String = "",
-    val imageUrl: String = "",
-    val submittedAtMillis: Long = 0L,
-    val amountToman: Long = 100_000,
-    val status: ReceiptStatus = ReceiptStatus.PENDING,
-    val reviewedAtMillis: Long? = null
-)
-
 /** پیام کاربر در بخش سوالات و انتقادات. پاسخ ادمین در فیلد reply قرار می‌گیرد. */
 data class FeedbackMessage(
     val id: String = "",
-    val uid: String = "",
-    val email: String = "",
     val message: String = "",
-    val submittedAtMillis: Long = 0L,
     val reply: String = "",
+    val submittedAtMillis: Long = 0L,
     val repliedAtMillis: Long = 0L
 )
 

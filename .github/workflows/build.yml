@@ -26,6 +26,7 @@ jobs:
       - name: Build debug APK
         env:
           BRSAPI_KEY: ${{ secrets.BRSAPI_KEY }}
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
         run: gradle assembleDebug --stacktrace
 
       - name: Upload APK
