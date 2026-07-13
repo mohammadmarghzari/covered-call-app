@@ -3,6 +3,7 @@ package com.marghazari.coveredcall.domain
 import com.marghazari.coveredcall.data.model.CoveredCallResult
 import com.marghazari.coveredcall.data.model.OptionContract
 import com.marghazari.coveredcall.data.model.OptionType
+import com.marghazari.coveredcall.data.model.TargetMatch
 
 object CoveredCallCalculator {
 
@@ -49,6 +50,62 @@ object CoveredCallCalculator {
             .mapNotNull { calculate(it) }
             .filter { it.staticReturnPercent > 0 }
             .sortedByDescending { it.annualizedReturnPercent }
+    }
+
+    /**
+     * فرمول‌یاب: قراردادهایی را پیدا می‌کند که استراتژی کاورد کال آن‌ها به سود هدف کاربر
+     * (targetReturnPercent) در بازه زمانی دلخواه (horizonMonths ماه) می‌رسد و برای هرکدام استدلال می‌سازد.
+     *
+     * منطق: بازده ایستای هر قرارداد تا سررسیدش محاسبه می‌شود، سپس به نرخ ماهانه تبدیل و
+     * روی بازه هدف تصویر (project) می‌شود. قراردادهایی که تصویرشان به هدف می‌رسد نگه داشته می‌شوند.
+     */
+    fun findForTarget(
+        contracts: List<OptionContract>,
+        targetReturnPercent: Double,
+        horizonMonths: Int
+    ): List<TargetMatch> {
+        if (targetReturnPercent <= 0 || horizonMonths <= 0) return emptyList()
+        val horizonDays = horizonMonths * 30.0
+
+        return rankBestContracts(contracts).mapNotNull { result ->
+            val days = result.contract.daysToExpiry
+            if (days <= 0) return@mapNotNull null
+
+            val monthly = result.staticReturnPercent * (30.0 / days)
+            val projected = result.staticReturnPercent * (horizonDays / days)
+            if (projected < targetReturnPercent) return@mapNotNull null
+
+            // اگر سررسید قرارداد نزدیک بازه هدف باشد، تخمین قابل‌اتکاتر است.
+            val fitsHorizon = days >= horizonDays * 0.5 && days <= horizonDays * 1.5
+
+            val fitNote = if (fitsHorizon) {
+                "سررسید این قرارداد (${days} روز) به بازه‌ی هدف شما نزدیک است، پس این تخمین قابل‌اتکاست."
+            } else {
+                "سررسید این قرارداد ${days} روز است؛ عدد بالا با فرض تکرار همین بازده تا پایان بازه‌ی هدف محاسبه شده و صرفاً تخمینی است."
+            }
+
+            val reasoning = buildString {
+                append("بازده ایستای این قرارداد تا سررسید %.1f%% است".format(result.staticReturnPercent))
+                append(" (معادل حدود %.1f%% در ماه).".format(monthly))
+                append(" با این نرخ، بازده تخمینی در ${horizonMonths} ماه حدود %.1f%% می‌شود".format(projected))
+                append(" که از سود هدف شما (%.0f%%) بیشتر است.".format(targetReturnPercent))
+                append(" همچنین پرمیوم دریافتی %.1f%% از قیمت سهم، در برابر ریزش قیمت از شما محافظت می‌کند.".format(result.downsideProtectionPercent))
+                append(" ")
+                append(fitNote)
+            }
+
+            TargetMatch(
+                result = result,
+                monthlyReturnPercent = monthly,
+                projectedReturnPercent = projected,
+                fitsHorizon = fitsHorizon,
+                reasoning = reasoning
+            )
+        }.sortedWith(
+            // اول قراردادهایی که سررسیدشان به بازه هدف نزدیک است، سپس بیشترین بازده تصویرشده
+            compareByDescending<TargetMatch> { it.fitsHorizon }
+                .thenByDescending { it.projectedReturnPercent }
+        )
     }
 
     fun profitLossCurve(
