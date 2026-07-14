@@ -1,0 +1,37 @@
+# ==========================================================================
+#  OPTIONAL Nginx reverse proxy — only needed if you switch the bot from
+#  long-polling (the default) to WEBHOOK mode. For polling you do NOT need
+#  Nginx or a public domain at all.
+#
+#  Steps to use webhook mode:
+#    1. Point a domain (e.g. bot.example.com) to this server.
+#    2. Obtain a certificate:  sudo certbot --nginx -d bot.example.com
+#    3. Expose the bot's webhook port and set the webhook URL.
+#    4. Replace this file into /etc/nginx/sites-available/ and enable it.
+# ==========================================================================
+
+server {
+    listen 80;
+    server_name bot.example.com;
+    location / { return 301 https://$host$request_uri; }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name bot.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/bot.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/bot.example.com/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+
+    client_max_body_size 20M;
+
+    location /webhook/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

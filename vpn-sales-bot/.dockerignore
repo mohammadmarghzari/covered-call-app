@@ -1,0 +1,16 @@
+.git
+.gitignore
+.env
+*.env
+!.env.example
+__pycache__/
+*.pyc
+.venv/
+venv/
+logs/
+backups/
+*.sql.gz
+*.log
+.vscode/
+.idea/
+README.md

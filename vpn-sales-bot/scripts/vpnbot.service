@@ -1,0 +1,24 @@
+# ==========================================================================
+#  systemd unit for running the VPN Sales Bot stack via Docker Compose.
+#  Install:
+#     sudo cp scripts/vpnbot.service /etc/systemd/system/vpnbot.service
+#     # edit WorkingDirectory below if you deployed elsewhere
+#     sudo systemctl daemon-reload
+#     sudo systemctl enable --now vpnbot
+# ==========================================================================
+[Unit]
+Description=VPN Sales Telegram Bot (Docker Compose)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/vpn-sales-bot
+ExecStart=/usr/bin/docker compose up -d --build
+ExecStop=/usr/bin/docker compose down
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
