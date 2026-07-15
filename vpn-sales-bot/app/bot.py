@@ -16,6 +16,7 @@ from app.middlewares.ban import BanMiddleware
 from app.middlewares.db import DBSessionMiddleware
 from app.middlewares.throttling import ThrottlingMiddleware
 from app.repositories.setting_repo import SettingRepository
+from app.runtime import runtime
 from app.utils.constants import DEFAULT_SETTINGS
 
 log = get_logger("bot")
@@ -46,12 +47,31 @@ def create_dispatcher(redis: Redis) -> Dispatcher:
     return dp
 
 
+async def _resolve_admin_channel(bot: Bot) -> None:
+    """Resolve the admin channel to a numeric id and verify bot access."""
+    if settings.admin_channel_numeric_id is not None:
+        runtime.admin_channel_id = settings.admin_channel_numeric_id
+    try:
+        chat = await bot.get_chat(settings.admin_channel_ref)
+        runtime.admin_channel_id = chat.id
+        log.info("admin_channel_resolved", chat_id=chat.id, title=chat.title)
+    except Exception as exc:  # pragma: no cover - depends on Telegram/admin rights
+        log.warning(
+            "admin_channel_unresolved",
+            ref=str(settings.admin_channel_ref),
+            error=str(exc),
+            hint="Make sure the bot is an ADMIN of the channel.",
+        )
+
+
 async def on_startup(bot: Bot) -> None:
-    """Seed default settings and register bot commands."""
+    """Seed default settings, resolve the channel and register bot commands."""
     async with session_factory() as session:
         repo = SettingRepository(session)
         await repo.seed_defaults(DEFAULT_SETTINGS)
         await session.commit()
+
+    await _resolve_admin_channel(bot)
 
     await bot.set_my_commands(
         [

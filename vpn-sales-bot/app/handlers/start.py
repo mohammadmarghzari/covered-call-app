@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from aiogram import F, Router
-from aiogram.filters import CommandStart
+from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
@@ -33,6 +33,18 @@ async def cmd_start(message: Message, repos: Repos, state: FSMContext) -> None:
     if settings.is_admin(message.from_user.id):
         hint = "\n\n🛠 برای ورود به پنل مدیریت دستور /admin را بزنید."
     await message.answer(text + hint, reply_markup=main_menu_kb())
+
+
+@router.message(Command("id"))
+async def cmd_id(message: Message) -> None:
+    """Utility: report the numeric user id (and chat id). Handy for setup."""
+    lines = [
+        "🆔 <b>شناسه‌های عددی شما</b>\n",
+        f"👤 User ID شما: <code>{message.from_user.id}</code>",
+    ]
+    if message.chat.id != message.from_user.id:
+        lines.append(f"💬 Chat ID اینجا: <code>{message.chat.id}</code>")
+    await message.answer("\n".join(lines))
 
 
 @router.callback_query(MenuCB.filter(F.action == "home"))

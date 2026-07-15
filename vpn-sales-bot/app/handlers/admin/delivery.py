@@ -6,10 +6,10 @@ from __future__ import annotations
 from aiogram import Bot, F, Router
 from aiogram.types import Message
 
-from app.config import settings
 from app.database.models import OrderStatus
 from app.keyboards.user_kb import download_apps_kb
 from app.logger import get_logger
+from app.runtime import is_admin_channel
 from app.services.container import Repos
 from app.services.settings_service import get_download_links
 from app.utils.constants import SettingKey
@@ -22,7 +22,7 @@ _REJECT_PREFIXES = ("رد", "/reject", "reject", "❌")
 
 
 def _in_admin_channel(message: Message) -> bool:
-    return message.chat.id == settings.admin_channel_id
+    return is_admin_channel(message.chat.id, message.chat.username)
 
 
 async def _deliver_config(bot: Bot, repos: Repos, order, admin_id: int, link: str) -> None:
@@ -114,7 +114,11 @@ async def on_channel_reply(message: Message, repos: Repos, bot: Bot) -> None:
     await _handle_admin_reply(message, repos, bot)
 
 
-# If the admin uses a group instead of a channel, replies arrive as messages.
-@router.message(F.chat.id == settings.admin_channel_id, F.reply_to_message)
+# If the admin uses a group/supergroup instead of a channel, replies arrive as
+# messages. The `_in_admin_channel` guard inside ensures it is the right chat.
+@router.message(
+    F.chat.type.in_({"group", "supergroup"}),
+    F.reply_to_message,
+)
 async def on_group_reply(message: Message, repos: Repos, bot: Bot) -> None:
     await _handle_admin_reply(message, repos, bot)

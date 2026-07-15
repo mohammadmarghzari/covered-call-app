@@ -5,9 +5,9 @@ from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
-from app.config import settings
 from app.keyboards.user_kb import back_home_kb
 from app.logger import get_logger
+from app.runtime import channel_send_target
 from app.services.container import Repos
 from app.states.states import PurchaseFlow
 from app.utils.formatting import format_datetime, format_price, to_fa_digits
@@ -58,7 +58,7 @@ async def receive_receipt(message: Message, repos: Repos, state: FSMContext) -> 
     # admin's reply can be routed back to this order.
     try:
         sent = await message.bot.send_photo(
-            chat_id=settings.admin_channel_id,
+            chat_id=channel_send_target(),
             photo=file_id,
             caption=_admin_caption(order, user),
         )
