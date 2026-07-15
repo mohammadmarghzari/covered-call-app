@@ -7,6 +7,7 @@ help:
 	@echo "  make logs      - follow the bot logs"
 	@echo "  make restart   - restart the bot container"
 	@echo "  make migrate   - apply database migrations"
+	@echo "  make seed      - insert the initial plans (idempotent)"
 	@echo "  make revision m=\"msg\"  - autogenerate a new migration"
 	@echo "  make backup    - dump the database to ./backups"
 	@echo "  make shell     - open a shell inside the bot container"
@@ -28,6 +29,9 @@ restart:
 
 migrate:
 	docker compose run --rm migrate
+
+seed:
+	docker compose run --rm bot python -m app.seed
 
 revision:
 	docker compose run --rm bot alembic revision --autogenerate -m "$(m)"
