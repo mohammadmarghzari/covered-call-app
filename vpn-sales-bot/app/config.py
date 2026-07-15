@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     # --- Redis ------------------------------------------------------------
     redis_url: str = Field("redis://redis:6379/0", alias="REDIS_URL")
 
+    # --- Optional proxy for reaching Telegram (useful on filtered networks) --
+    # e.g. http://127.0.0.1:8888  or  socks5://user:pass@host:1080
+    telegram_proxy: str = Field("", alias="TELEGRAM_PROXY")
+
     # --- Behaviour --------------------------------------------------------
     rate_limit_messages: int = Field(5, alias="RATE_LIMIT_MESSAGES")
     rate_limit_window: int = Field(3, alias="RATE_LIMIT_WINDOW")

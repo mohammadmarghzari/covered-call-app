@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
+from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.types import BotCommand, BotCommandScopeChat
@@ -23,8 +24,13 @@ log = get_logger("bot")
 
 
 def create_bot() -> Bot:
+    session = None
+    if settings.telegram_proxy:
+        session = AiohttpSession(proxy=settings.telegram_proxy)
+        log.info("telegram_proxy_enabled", proxy=settings.telegram_proxy)
     return Bot(
         token=settings.bot_token,
+        session=session,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
 
