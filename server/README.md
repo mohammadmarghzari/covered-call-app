@@ -23,8 +23,9 @@ npm start
 4. با `liara deploy` بالا بیاور. آدرس اپ (مثل `https://xxx.liara.run`) همان `BACKEND_URL` است.
 
 ### هر VPS ایرانی (با Docker)
+> برای دیپلوی روی لیارا نیازی به Docker نیست؛ فایل داکر به اسم `Dockerfile.vps` است تا لیارا از بیلدپکِ Node استفاده کند. برای VPS با `-f` استفاده کن:
 ```bash
-docker build -t coveredcall-backend ./server
+docker build -f server/Dockerfile.vps -t coveredcall-backend ./server
 docker run -d -p 3000:3000 \
   -e JWT_SECRET=... -e ADMIN_TOKEN=... \
   -e SMS_PROVIDER=kavenegar -e KAVENEGAR_API_KEY=... -e KAVENEGAR_TEMPLATE=... \
